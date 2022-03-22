@@ -21,8 +21,6 @@ struct item
 	int val;
 };
 
-int getLongestLabel(struct item items[], int n);
-int getLargestVal(struct item items[], int n);
 void printHistogram(struct item items[], int n, int col);
 void usage(char* name, int v);
 
