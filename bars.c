@@ -11,6 +11,7 @@
 #include <unistd.h>
 
 #define OUTFORMAT " %*s | %-*s | %d \n"
+#define INFORMAT "%d %ms\n"
 // How large can/should this value be set to?
 #define MAXITEMS 10000
 #define MINPAD 8
@@ -23,14 +24,17 @@ struct item
 
 void printHistogram(struct item items[], int n, int col);
 void usage(char* name, int v);
+int getFileInput(char* argv[], struct item items[]);
+int getStdin(char *files[], struct item items[]);
 
 int main(int argc, char *argv[])
 {
-	// TODO handle if we can't get the width this way
 	// get the terminal width
 	struct winsize w;
 	ioctl(1, TIOCGWINSZ, &w);
 	int col = w.ws_col;
+	// default to 80 columns if we can't get the terminal width
+	if (col <= 0) { col = 80; }
 
 	int opt;
 	while ((opt = getopt(argc, argv, ":hc:")) != -1) {
@@ -60,27 +64,39 @@ int main(int argc, char *argv[])
 	int nkeys = 0;
 
 	argv += optind;
+	// if there are any args not grabed by getopt treat them as files
 	if (*argv) {
-		for (; *argv; argv++) {
-			FILE *f;
-			if ((f = fopen( *argv, "r")) == NULL) {
-				perror("fopen");
-				return errno;
-			}
-			while(fscanf(f,
-					"%d %ms\n",
-					&items[nkeys].val,
-					&items[nkeys].label) != EOF)
-				nkeys++;
-			fclose(f);
-		}
-	} else {
-		while(scanf("%d %ms\n", &items[nkeys].val, &items[nkeys].label) != EOF)
-			nkeys++;
+		nkeys = getFileInput(argv, items);
+	} else { // else get input from stdin
+		nkeys = getStdin(argv, items);
 	}
 
 	printHistogram(items, nkeys, col);
 	return 0;
+}
+
+int getStdin(char *files[], struct item items[]) {
+	int nkeys = 0;
+	while(scanf(INFORMAT, &items[nkeys].val, &items[nkeys].label) != EOF)
+		nkeys++;
+	return nkeys;
+}
+
+int getFileInput(char *files[], struct item items[]) {
+	int nkeys = 0;
+	for (; *files; files++) {
+		FILE *f;
+		if ((f = fopen( *files, "r")) == NULL) {
+			perror("fopen");
+			return errno;
+		}
+		while(fscanf(f, INFORMAT, &items[nkeys].val,
+					&items[nkeys].label) != EOF)
+			nkeys++;
+		fclose(f);
+	}
+
+	return nkeys;
 }
 
 int getLargestVal(struct item items[], int n)
