@@ -1,7 +1,7 @@
 #define _DEFAULT_SOURCE
 #define _POSIX_C_SOURCE 2
 
-#include <errno.h>
+#include <error.h>
 #include <math.h>
 #include <stdio.h>
 #include <stdlib.h>
@@ -25,7 +25,7 @@ struct item
 void printHistogram(struct item items[], int n, int col);
 void usage(char* name, int v);
 int getFileInput(char* argv[], struct item items[]);
-int getStdin(char *files[], struct item items[]);
+int getStdin(struct item items[]);
 
 int main(int argc, char *argv[])
 {
@@ -68,14 +68,17 @@ int main(int argc, char *argv[])
 	if (*argv) {
 		nkeys = getFileInput(argv, items);
 	} else { // else get input from stdin
-		nkeys = getStdin(argv, items);
+		nkeys = getStdin(items);
 	}
 
+	if (!nkeys) {
+		return 0;
+	}
 	printHistogram(items, nkeys, col);
 	return 0;
 }
 
-int getStdin(char *files[], struct item items[]) {
+int getStdin(struct item items[]) {
 	int nkeys = 0;
 	while(scanf(INFORMAT, &items[nkeys].val, &items[nkeys].label) != EOF)
 		nkeys++;
@@ -86,13 +89,13 @@ int getFileInput(char *files[], struct item items[]) {
 	int nkeys = 0;
 	for (; *files; files++) {
 		FILE *f;
-		if ((f = fopen( *files, "r")) == NULL) {
-			perror("fopen");
-			return errno;
+		if (!(f = fopen( *files, "r"))) {
+			error(0, 0, "Cannot read from '%s'", *files);
+			continue;
 		}
-		while(fscanf(f, INFORMAT, &items[nkeys].val,
-					&items[nkeys].label) != EOF)
+		while(fscanf(f, INFORMAT, &items[nkeys].val, &items[nkeys].label) != EOF)
 			nkeys++;
+
 		fclose(f);
 	}
 
