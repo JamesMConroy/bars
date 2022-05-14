@@ -25,6 +25,5 @@ Inspired by [jez/bars](https://github.com/jez/bars)/[jez/barchart](https://githu
 Plenty
 
 - little to no input checking
-- the program freezes if the input doesn't match what `scanf` is expecting
-- doesn't handle floats
+- floors all floats to ints
 

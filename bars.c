@@ -1,6 +1,7 @@
 #define _DEFAULT_SOURCE
 #define _POSIX_C_SOURCE 2
 
+#include <ctype.h>
 #include <error.h>
 #include <math.h>
 #include <stdio.h>
@@ -44,6 +45,10 @@ int main(int argc, char *argv[])
 				break;
 			case 'c':
 				col = atoi(optarg);
+				if (col < MINPAD * 2 ) {
+					fprintf(stderr, "Column width too small!!\n");
+					usage(argv[0], 1);
+				}
 				break;
 			case ':':
 				fprintf(stderr,
@@ -75,27 +80,65 @@ int main(int argc, char *argv[])
 		return 0;
 	}
 	printHistogram(items, nkeys, col);
+	for (int i = 0; i < nkeys ; i++) {
+		free(items[i].label);
+	}
 	return 0;
 }
 
+// TODO: getStdin and getFileInput can probably be combined/refactored
 int getStdin(struct item items[]) {
 	int nkeys = 0;
-	while(scanf(INFORMAT, &items[nkeys].val, &items[nkeys].label) != EOF)
+	char *endptr, *line = NULL;
+	size_t len = 0;
+
+	while((getline(&line, &len, stdin)) != -1) {
+		// trim whitespace from the end of the string
+		char *end;
+		end = line + strlen(line) - 1;
+		while(end > line && isspace(*end)){ end--; }
+		end[1] = '\0';
+
+		// get the value from the begining of the string
+		items[nkeys].val = strtol(line, &endptr, 0);
+		// trim whitespace from the begining of the remaning string
+		for (; isspace(*endptr); endptr++);
+
+		items[nkeys].label = malloc(strlen(endptr) * sizeof(char) + 1);
+		strcpy(items[nkeys].label, endptr);
 		nkeys++;
+	}
+
+	free(line);
 	return nkeys;
 }
 
 int getFileInput(char *files[], struct item items[]) {
 	int nkeys = 0;
 	for (; *files; files++) {
+		char *endptr, *line = NULL;
+		size_t len = 0;
 		FILE *f;
 		if (!(f = fopen( *files, "r"))) {
 			error(0, 0, "Cannot read from '%s'", *files);
 			continue;
 		}
-		while(fscanf(f, INFORMAT, &items[nkeys].val, &items[nkeys].label) != EOF)
-			nkeys++;
+		while((getline(&line, &len, f)) != -1) {
+			// trim whitespace from the end of the string
+			char *end;
+			end = line + strlen(line) - 1;
+			while(end > line && isspace(*end)){ end--; }
+			end[1] = '\0';
 
+			// get the value from the begining of the string
+			items[nkeys].val = strtol(line, &endptr, 0);
+			// trim whitespace from the begining of the remaning string
+			for (; isspace(*endptr); endptr++);
+
+			items[nkeys].label = malloc(strlen(endptr) * sizeof(char) + 1);
+			strcpy(items[nkeys].label, endptr);
+			nkeys++;
+		}
 		fclose(f);
 	}
 
@@ -130,7 +173,7 @@ void printHistogram(struct item items[], int n, int col)
 	int max = getLargestVal(items, n);
 	int lenLabel = getLongestLabel(items, n);
 	// get the string len of the largest val
-	// XXX This assumes the len of the longest value is also the longest
+	// XXX This assumes the len of the largest value is also the longest
 	int nDigits = floor(log10(abs(max))) + 1;
 	// remove the length of the padding / label / value characters
 	col -= MINPAD + lenLabel + nDigits;
