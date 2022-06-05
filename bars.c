@@ -12,7 +12,6 @@
 #include <unistd.h>
 
 #define OUTFORMAT " %*s | %-*s | %d \n"
-#define INFORMAT "%d %ms\n"
 // How large can/should this value be set to?
 #define MAXITEMS 10000
 #define MINPAD 8
@@ -24,9 +23,8 @@ struct item
 };
 
 void printHistogram(struct item items[], int n, int col);
-void usage(char* name, int v);
-int getFileInput(char* argv[], struct item items[]);
-int getStdin(struct item items[]);
+void usage(char *name, int v);
+int getInput(FILE *file, struct item items[]);
 
 int main(int argc, char *argv[])
 {
@@ -70,13 +68,23 @@ int main(int argc, char *argv[])
 
 	argv += optind;
 	// if there are any args not grabed by getopt treat them as files
+	FILE *f;
 	if (*argv) {
-		nkeys = getFileInput(argv, items);
+		for (; *argv; argv++) {
+			if (!(f = fopen( *argv, "r"))) {
+				error(0, 0, "Cannot read from '%s'", *argv);
+				continue;
+			}
+			nkeys = getInput(f, items);
+			fclose(f);
+		}
 	} else { // else get input from stdin
-		nkeys = getStdin(items);
+		f = stdin;
+		nkeys = getInput(f, items);
 	}
 
 	if (!nkeys) {
+		printf("No keys found. Exiting\n");
 		return 0;
 	}
 	printHistogram(items, nkeys, col);
@@ -86,13 +94,12 @@ int main(int argc, char *argv[])
 	return 0;
 }
 
-// TODO: getStdin and getFileInput can probably be combined/refactored
-int getStdin(struct item items[]) {
+int getInput(FILE *file, struct item items[]) {
 	int nkeys = 0;
 	char *endptr, *line = NULL;
 	size_t len = 0;
 
-	while((getline(&line, &len, stdin)) != -1) {
+	while((getline(&line, &len, file)) != -1) {
 		// trim whitespace from the end of the string
 		char *end;
 		end = line + strlen(line) - 1;
@@ -110,38 +117,6 @@ int getStdin(struct item items[]) {
 	}
 
 	free(line);
-	return nkeys;
-}
-
-int getFileInput(char *files[], struct item items[]) {
-	int nkeys = 0;
-	for (; *files; files++) {
-		char *endptr, *line = NULL;
-		size_t len = 0;
-		FILE *f;
-		if (!(f = fopen( *files, "r"))) {
-			error(0, 0, "Cannot read from '%s'", *files);
-			continue;
-		}
-		while((getline(&line, &len, f)) != -1) {
-			// trim whitespace from the end of the string
-			char *end;
-			end = line + strlen(line) - 1;
-			while(end > line && isspace(*end)){ end--; }
-			end[1] = '\0';
-
-			// get the value from the begining of the string
-			items[nkeys].val = strtol(line, &endptr, 0);
-			// trim whitespace from the begining of the remaning string
-			for (; isspace(*endptr); endptr++);
-
-			items[nkeys].label = malloc(strlen(endptr) * sizeof(char) + 1);
-			strcpy(items[nkeys].label, endptr);
-			nkeys++;
-		}
-		fclose(f);
-	}
-
 	return nkeys;
 }
 
